@@ -8,11 +8,13 @@ from instance.database import db
 from instance.api import api
 
 from datetime import timedelta
+from utils.mail.reminder_mail import send_remainder_emails
 
 class UserRegistrationAPI(Resource):
     '''
         API to register user
     '''
+    
     def post(self):
         # Get the request data
         data = request.get_json()

@@ -4,3 +4,6 @@ Flask-SQLAlchemy
 Flask-JWT-Extended
 Flask-cors
 python-dotenv
+celery
+redis
+Flask-mail

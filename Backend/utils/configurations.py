@@ -1,32 +1,46 @@
 import os
-from application.config import LocalDevelopmentConfig, ProductionConfig
+from application.config import LocalDevelopmentConfig
 
 from instance.app import app
 from instance.database import db
 from instance.api import api
+from instance.mail import mail
 from flask_jwt_extended import JWTManager
 from application.models import User, Role
 from flask_cors import CORS
+from instance.celery import cel
 import utils.loadenv
 from datetime import timedelta
+from werkzeug.security import generate_password_hash
 
+from pprint import pprint
 
 # --------------- Setting up the flask app --------------- #
 def create_app():
-    if(os.getenv("ENV","Development")=="Production"):
-        print("----- Starting the production development -----")
-        app.config.from_object(ProductionConfig) # Configures the ProductionConfig data with the app
-    else:
-        print("----- Starting the local development -----")
-        print(LocalDevelopmentConfig.SQLALCHEMY_DATABASE_URI)
-        app.config.from_object(LocalDevelopmentConfig) # Configures the LocalDevelopmentConfig data with the app
+    print("----- Starting the local development -----")
+    app.config.from_object(LocalDevelopmentConfig) # Configures the LocalDevelopmentConfig data with the app
+
+    # Configuring Celery
+    cel.conf.broker_url = app.config["CELERY_BROKER_URL"]
+    cel.conf.result_backend = app.config["CELERY_RESULT_BACKEND"]
+    cel.conf.enable_utc = app.config["ENABLE_UTC"]
+    cel.conf.timezone = app.config["TIMEZONE"]
+
+    class ContextTask(cel.Task):
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return self.run(*args, **kwargs)
+
+    cel.Task = ContextTask
 
     db.init_app(app)
-    jwt = JWTManager(app)
+    JWTManager(app)
     api.init_app(app)
     CORS(app)
-    
+    mail.init_app(app)
     app.app_context().push()
+
+    return cel
 
 
 # --------------- Setting up the database --------------- #
@@ -37,11 +51,15 @@ def initialise_database():
 
         if not table_names:  # If no tables exist
             db.create_all()
-            admin = Role(name = 'ADMIN', description = '')
-            user = Role(name = 'USER', description = '')
+            adminRole = Role(name = 'ADMIN', description = '')
+            userRole = Role(name = 'END_USER', description = '')
 
-            db.session.add(admin)
-            db.session.add(user)
+            adminUser = User(email="admin@gmail.com",password=generate_password_hash("password"),role="ADMIN",active=True)
+            
+            db.session.add(adminRole)
+            db.session.add(userRole)
+            db.session.add(adminUser)
+
             db.session.commit()
 
             print("Database tables created.")
