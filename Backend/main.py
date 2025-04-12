@@ -6,7 +6,7 @@ import utils.celery.tasks
 
 cel = create_app()
 initialise_database()
-
+changed
 
 if __name__ == '__main__':
     app.run()
